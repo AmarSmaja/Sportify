@@ -4,16 +4,16 @@
   const nav = [
     { href: '/', label: 'Home' },
     { href: '/nba', label: 'NBA' },
-	{ href: '/cbb', label: 'CBB' },
+	  { href: '/cbb', label: 'CBB' },
     { href: '/football', label: 'Football' },
     { href: '/nfl', label: 'NFL' },
-	{ href: '/cfb', label: 'CFB' },
+	  { href: '/cfb', label: 'CFB' },
     { href: '/mma', label: 'MMA' }
   ];
 
   function isActive(pathname: string, href: string) {
     if (href === '/') return pathname === '/';
-    // aktivno za /nba i sve pod-rute tipa /nba/...
+
     return pathname === href || pathname.startsWith(href + '/');
   }
 </script>
@@ -24,11 +24,7 @@
 
     <nav class="nav">
       {#each nav as item}
-        <a
-          class="navLink"
-          class:active={isActive($page.url.pathname, item.href)}
-          href={item.href}
-        >
+        <a class="navLink" class:active={isActive($page.url.pathname, item.href)} href={item.href}>
           {item.label}
         </a>
       {/each}
@@ -79,7 +75,6 @@
     background: #fafafa;
   }
 
-  /* ACTIVE STATE */
   .navLink.active {
     background: #111;
     color: white;

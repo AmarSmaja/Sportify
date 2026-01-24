@@ -1,5 +1,6 @@
-import type { PageServerLoad } from "../$types";
+import type { PageServerLoad } from './$types';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { todayUtc, tomorrowUtc, pickDateFromUrl } from '$lib/schedule/date';
 
 type NbaGame = {
   id: number;
@@ -20,39 +21,40 @@ type ApiResponse = {
   data: NbaGame[];
 };
 
-function todayUtc(): string {
-  const d = new Date();
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+function sortByDateTimeUtc(games: NbaGame[]): NbaGame[] {
+    return [...games].sort((a, b) => {
+      const ta = a.datetimeUtc ? Date.parse(a.datetimeUtc) : Number.POSITIVE_INFINITY;
+      const tb = b.datetimeUtc ? Date.parse(b.datetimeUtc) : Number.POSITIVE_INFINITY;
+      return ta - tb;
+    });
 }
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
-  const base = PUBLIC_API_BASE_URL;
-  if (!base) throw new Error('Missing PUBLIC_API_BASE_URL');
+  if (!PUBLIC_API_BASE_URL) throw new Error("Missing PUBLIC_API_BASE_URL");
 
-  const date = url.searchParams.get('date') ?? todayUtc();
+  const today = todayUtc();
+  const tomorrow = tomorrowUtc();
+  const date = pickDateFromUrl(url);
 
-  const res = await fetch(`${base}/nba/games?date=${encodeURIComponent(date)}`, {
-    headers: { Accept: 'application/json' }
-  });
+  const forceRefresh = url.searchParams.get('refresh') === '1' || url.searchParams.get('refresh') === 'true';
+  const apiUrl = new URL(`${PUBLIC_API_BASE_URL}/nba/games`);
+  apiUrl.searchParams.set('date', date);
+  if (forceRefresh) apiUrl.searchParams.set('forceRefresh', 'true');
+
+  const res = await fetch(apiUrl.toString(), { headers: { Accept: 'applications/json' } });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    return { date, error: `API error ${res.status}: ${text}`.slice(0, 300) };
+    return { today, tomorrow, date, error: `API Error ${res.status}: ${text}`.slice(0, 400) };
   }
 
   const json = (await res.json()) as ApiResponse;
 
   return {
+    today,
+    tomorrow,
     date: json.date,
-    meta: {
-      provider: json.provider,
-      cached: json.cached,
-      stale: json.stale,
-      fetchedAt: json.fetchedAt
-    },
-    games: json.data
+    meta: { provider: json.provider, cached: json.cached, stale: json.stale, fetchedAt: json.fetchedAt },
+    games: sortByDateTimeUtc(json.data)
   };
-};
+}
