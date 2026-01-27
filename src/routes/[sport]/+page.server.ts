@@ -1,6 +1,16 @@
 import type { PageServerLoad } from "./$types";
-import { PUBLIC_API_BASE_URL } from "$env/static/public";
 import { todayUtc, tomorrowUtc, pickDateFromUrl } from "$lib/schedule/date";
+import { apiJson } from "$lib/server/api";
+
+type ScheduleResponse = {
+    sport: string;
+    date: string;
+    provider: string;
+    cached: boolean;
+    stale: boolean;
+    fetchedAt: string;
+    data: unknown[];
+};
 
 function normalizeSport(s: string) {
     return (s ?? '').trim().toLowerCase();
@@ -19,8 +29,6 @@ function sortByDatetimeUtc(games: any[]) {
 }
 
 export const load: PageServerLoad = async ({ fetch, url, params }) => {
-    if (!PUBLIC_API_BASE_URL) throw new Error('Missing PUBLIC_API_BASE_URL');
-
     const today = todayUtc();
     const tomorrow = tomorrowUtc();
     const date = pickDateFromUrl(url);
@@ -33,20 +41,13 @@ export const load: PageServerLoad = async ({ fetch, url, params }) => {
 
     const forceRefresh = url.searchParams.get('refresh') === '1' || url.searchParams.get('refresh') === 'true';
 
-    const apiUrl = new URL(`${PUBLIC_API_BASE_URL}/schedule`);
-    apiUrl.searchParams.set('sport', sport);
-    apiUrl.searchParams.set('date', date);
-    if (forceRefresh) apiUrl.searchParams.set('forceRefresh', 'true');
-
-    const res = await fetch(apiUrl.toString(), { headers: { Accept: 'application/json' } });
-
-    if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        
-        return { today, tomorrow, date, sport, error: `API error ${res.status}: ${text}`.slice(0, 400) };
+    let json: ScheduleResponse;
+    try {
+        json = await apiJson<ScheduleResponse>(fetch, '/schedule', { sport, date, forceRefresh: forceRefresh ? "true" : undefined });
+    } catch (e: any) {
+        const msg = typeof e?.body === "string" ? e.body : e?.message ?? "Unknown Error!";
+        return { today, tomorrow, date, sport, error: `API error: ${msg}`.slice(0, 400) };
     }
-
-    const json = (await res.json()) as any;
 
     return { 
         today, 
@@ -60,6 +61,6 @@ export const load: PageServerLoad = async ({ fetch, url, params }) => {
             stale: json.stale,
             fetchedAt: json.fetchedAt
         },
-        games: sortByDatetimeUtc(json.data ?? [])
+        games: sortByDatetimeUtc((json.data ?? []) as any[])
     };
 };
