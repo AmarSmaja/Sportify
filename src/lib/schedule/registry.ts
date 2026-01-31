@@ -6,7 +6,7 @@ const ESPN_TIMEOUT_MS = Number(process.env.ESPN_TIMEOUT_MS ?? 12_000);
 
 const FOOTBALL_LEAGUES = (process.env.FOOTBALL_LEAGUES ?? "eng.1").split(",").map((s) => s.trim()).filter(Boolean);
 const CFB_GROUPS = (process.env.CFB_GROUPS ?? "80").split(",").map((s) => s.trim()).filter(Boolean);
-const CBB_GROUPS = (process.env.CBB_GROUPS ?? "100").split(",").map((s) => s.trim()).filter(Boolean);
+const CBB_GROUPS = (process.env.CBB_GROUPS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 type SportConfig = {
     provider: string;
